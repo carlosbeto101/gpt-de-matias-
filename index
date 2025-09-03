@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat de Matías</title>
+  <base target="_top">
+  <style>
+    :root{
+      --bg: #0f1117;
+      --panel: #161922;
+      --muted: #8b90a5;
+      --text: #e7e9ee;
+      --accent: #6ea8ff;
+      --border: #232736;
+    }
+    body.light{
+      --bg:#f7f8fa; --panel:#ffffff; --muted:#687087; --text:#0f1222; --accent:#3b7cff; --border:#e7e9ef;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial;
+      background: var(--bg); color: var(--text);
+      display:grid; grid-template-rows:auto 1fr auto; gap:8px; padding:12px;
+    }
+    .topbar{
+      max-width:860px; margin:0 auto; width:100%;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--panel);
+    }
+    .brand{font-weight:700; letter-spacing:.2px}
+    .toggle{display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; user-select:none}
+    .toggle input{appearance:none; width:38px; height:22px; border-radius:999px; background:#2a2f40; position:relative; outline:none; border:1px solid var(--border)}
+    .toggle input:checked{background:#cfd7ff}
+    .toggle input::after{content:""; position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition:transform .2s ease}
+    .toggle input:checked::after{transform:translateX(16px)}
+    .panel{
+      max-width:860px; margin:0 auto; width:100%;
+      display:grid; grid-template-rows: 1fr auto; gap:8px;
+      border:1px solid var(--border); border-radius:12px; background:var(--panel);
+      min-height:70dvh;
+    }
+    .chat{overflow:auto; padding:14px}
+    .msg{display:grid; grid-template-columns:40px 1fr; gap:10px; align-items:flex-start; margin:10px 0}
+    .avatar{width:40px; height:40px; border-radius:10px; display:grid; place-items:center; background:#22283a; color:#fff; font-weight:700}
+    .bubble{padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#101420; white-space:pre-wrap; word-wrap:break-word;}
+    .row.user{grid-template-columns:1fr 40px}
+    .row.user .avatar{order:2; background:#dbe6ff; color:#1a2240}
+    .row.user .bubble{justify-self:end; background:#e9f1ff; color:#0b1225}
+    .meta{margin-top:4px; font-size:12px; color:var(--muted)}
+    .composerWrap{padding:12px; border-top:1px solid var(--border); display:grid; gap:8px}
+    .attachBar{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+    .dropzone{flex:1 1 auto; min-height:56px; display:flex; align-items:center; justify-content:center; padding:10px;
+      border:1px dashed var(--border); border-radius:10px; color:var(--muted); cursor:pointer;}
+    .dropzone.drag{border-color:var(--accent); color:var(--accent); background:rgba(110,168,255,.08)}
+    .fileInput{display:none}
+    .fileList{display:flex; gap:6px; flex-wrap:wrap}
+    .fileTag{font-size:12px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:4px 8px}
+    .composer{display:grid; grid-template-columns: 1fr auto; gap:8px;}
+    .inp{height:44px; border:1px solid var(--border); background:#0e1220; color:var(--text);
+      border-radius:10px; padding:0 12px; outline:none;}
+    body.light .inp{background:#f8faff}
+    .btn{height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--border);
+      background:var(--accent); color:#08121f; font-weight:700; cursor:pointer;}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    a{color:var(--accent)}
+    .typing{display:inline-flex; gap:6px}
+    .dot{width:6px; height:6px; border-radius:999px; background:var(--muted); animation:blink 1.2s infinite}
+    .dot:nth-child(2){animation-delay:.15s} .dot:nth-child(3){animation-delay:.3s}
+    @keyframes blink{0%,80%,100%{opacity:.2} 40%{opacity:1}}
+  </style>
+</head>
+<body class="dark">
+  <header class="topbar">
+    <div class="brand">Chat de Matías</div>
+    <label class="toggle" title="Tema claro/oscuro">
+      <span>☾</span>
+      <input id="switch" type="checkbox" />
+      <span>☀︎</span>
+    </label>
+  </header>
+  <main class="panel">
+    <section id="chat" class="chat" aria-live="polite" aria-label="Historial de chat"></section>
+    <div class="composerWrap">
+      <div class="attachBar">
+        <label id="dropzone" class="dropzone" for="archivo">Suelta archivos aquí o haz clic</label>
+        <input id="archivo" class="fileInput" type="file" multiple />
+        <div id="fileList" class="fileList" aria-live="polite"></div>
+      </div>
+      <div class="composer">
+        <input type="text" id="pregunta" class="inp" placeholder="Escribe tu mensaje y presiona Enter" autocomplete="off" />
+        <button class="btn" id="enviar">Enviar</button>
+      </div>
+    </div>
+  </main>
+  <script>
+    const qs=(s,el=document)=>el.querySelector(s);
+    const chat=qs('#chat'),input=qs('#pregunta'),btn=qs('#enviar');
+    const fileInput=qs('#archivo'),fileList=qs('#fileList'),dropzone=qs('#dropzone');
+    const switchEl=qs('#switch');
+
+    // Tema persistente
+    const saved=localStorage.getItem('theme');
+    if(saved==='light'){document.body.classList.add('light');switchEl.checked=true;}
+    switchEl.addEventListener('change',()=>{document.body.classList.toggle('light',switchEl.checked);localStorage.setItem('theme',switchEl.checked?'light':'dark');});
+
+    const now=()=>new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+
+    function msgTemplate({ who, text, typing=false }){
+      const row=document.createElement('div'); row.className=`msg row ${who}`;
+      const avatar=document.createElement('div'); avatar.className='avatar'; avatar.textContent=who==='user'?'U':'🤖';
+      const bubble=document.createElement('div'); bubble.className='bubble';
+      bubble.innerHTML=typing?`<span class="typing"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>`:escapeHTML(text);
+      const meta=document.createElement('div'); meta.className='meta'; meta.textContent=now();
+      if(who==='user'){
+        row.style.gridTemplateColumns='1fr 40px';
+        const col=document.createElement('div'); col.appendChild(bubble); col.appendChild(meta);
+        row.appendChild(document.createElement('div')); row.appendChild(col); row.appendChild(avatar);
+      }else{
+        row.appendChild(avatar); const col=document.createElement('div'); col.appendChild(bubble); col.appendChild(meta); row.appendChild(col);
+      }
+      return row;
+    }
+    function escapeHTML(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+    function addMessage(who,text){const n=msgTemplate({who,text}); chat.appendChild(n); chat.scrollTop=chat.scrollHeight; return n;}
+    function addTyping(){const n=msgTemplate({who:'gpt',text:'',typing:true}); chat.appendChild(n); chat.scrollTop=chat.scrollHeight; return n;}
+    function replaceTyping(node,text){const bubble=node.querySelector('.bubble'); if(bubble) bubble.textContent=text; const meta=node.querySelector('.meta'); if(meta) meta.textContent=now();}
+    function setSending(b){btn.disabled=b;input.disabled=b;}
+
+    // archivos UI
+    function renderFileList(files){fileList.innerHTML='';[...files].forEach(f=>{const tag=document.createElement('span');tag.className='fileTag';const kb=Math.max(1,Math.round(f.size/1024));tag.textContent=`${f.name} • ${kb} KB`;fileList.appendChild(tag);});}
+    fileInput.addEventListener('change',()=>renderFileList(fileInput.files));
+    ['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.add('drag');}));
+    ['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
+    dropzone.addEventListener('drop',e=>{const dt=e.dataTransfer;if(!dt?.files?.length)return;fileInput.files=dt.files;renderFileList(fileInput.files);});
+
+    function readFilesAsBase64(files,maxMB=10){
+      return Promise.all([...files].map(file=>new Promise((resolve,reject)=>{
+        if(file.size>maxMB*1024*1024) return reject(new Error(`"${file.name}" supera ${maxMB} MB`));
+        const reader=new FileReader();
+        reader.onload=e=>{const base64=String(e.target.result).split(',')[1];resolve({name:file.name,base64,type:file.type||'application/octet-stream'});};
+        reader.onerror=()=>reject(new Error(`Error leyendo ${file.name}`));
+        reader.readAsDataURL(file);
+      })));
+    }
+
+    function enviarPregunta(){
+      const text=input.value.trim();
+      const hasFiles=fileInput.files.length>0;
+      if(!text && !hasFiles) return;
+      if(text) addMessage('user',text);
+      if(hasFiles) addMessage('user',`Adjuntos: ${[...fileInput.files].map(f=>f.name).join(', ')}`);
+      const typing=addTyping();
+      replaceTyping(typing,hasFiles?'📎 Subiendo…':'⌛ Procesando…');
+      setSending(true);
+      const runner=(typeof google!=='undefined'&&google.script&&google.script.run)?google.script.run:null;
+      if(!runner){setTimeout(()=>{replaceTyping(typing,'Simulación local');setSending(false);cleanupAfterSend();},600);return;}
+      if(!hasFiles){
+        runner.withSuccessHandler(res=>{replaceTyping(typing,res);cleanupAfterSend();})
+              .withFailureHandler(err=>{replaceTyping(typing,`⚠️ ${err?.message||'error'}`);cleanupAfterSend();})
+              .procesarPregunta(text);
+        return;
+      }
+      readFilesAsBase64(fileInput.files).then(payload=>{
+        runner.withSuccessHandler(res=>{replaceTyping(typing,res);cleanupAfterSend();})
+              .withFailureHandler(()=>{
+                // fallback uno por uno
+                const seq=payload.reduce((p,f)=>p.then(()=>new Promise((resolve,reject)=>{
+                  runner.withSuccessHandler(res=>resolve(res))
+                        .withFailureHandler(reject)
+                        .procesarPreguntaConArchivo(text||`Analiza el adjunto: ${f.name}`,f.name,f.base64);
+                })),Promise.resolve(''));
+                seq.then(res=>{replaceTyping(typing,res||'Listo.');cleanupAfterSend();})
+                   .catch(err=>{replaceTyping(typing,`⚠️ ${err?.message||'falló'}`);cleanupAfterSend();});
+              })
+              .procesarPreguntaConArchivos(text||'Analiza los adjuntos',payload);
+      }).catch(e=>{replaceTyping(typing,`⚠️ ${e.message}`);cleanupAfterSend();});
+    }
+    function cleanupAfterSend(){setSending(false);input.value='';fileInput.value='';fileList.innerHTML='';}
+    btn.addEventListener('click',enviarPregunta);
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviarPregunta();}});
+    addMessage('gpt','Hola, soy tu mini chat. Ahora acepto imágenes, PDFs y más.');
+  </script>
+</body>
+</html>
