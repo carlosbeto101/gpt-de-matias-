@@ -50,6 +50,9 @@ function procesarPregunta(pregunta) {
 }
 
 function procesarPreguntaConArchivo(pregunta, nombreArchivo, contenidoBase64) {
+  if (!nombreArchivo || !contenidoBase64) {
+    return procesarPregunta(pregunta || "Adjunto vacío");
+  }
   const meta = guardarArchivoEnDrive(nombreArchivo, contenidoBase64);
 
   // Solo imágenes soportadas a image_url
@@ -87,12 +90,17 @@ function procesarPreguntaConArchivo(pregunta, nombreArchivo, contenidoBase64) {
 }
 
 function procesarPreguntaConArchivos(pregunta, archivos) {
-  if (!Array.isArray(archivos) || archivos.length === 0) {
+  if (!Array.isArray(archivos)) {
     return procesarPregunta(pregunta || "Procesa esto.");
   }
 
-  const metas = archivos.map(a => {
-    const safeType = a && a.type ? a.type : detectarMimePorNombre(a?.name || "");
+  const limpios = archivos.filter(a => a && a.name && a.base64);
+  if (limpios.length === 0) {
+    return procesarPregunta(pregunta || "Procesa esto.");
+  }
+
+  const metas = limpios.map(a => {
+    const safeType = a.type && String(a.type).trim() ? a.type : detectarMimePorNombre(a.name);
     return guardarArchivoEnDrive(a.name, a.base64, safeType);
   });
 
@@ -431,13 +439,15 @@ function guardarArchivoEnDrive(nombre, base64, mimeOpt) {
   const carpeta = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   const mime = mimeOpt || detectarMimePorNombre(nombre);
 
-  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nombre);
+  const limpio = String(base64).replace(/\s+/g, "");
+  const blob = Utilities.newBlob(Utilities.base64Decode(limpio), mime, nombre);
   const file = carpeta.createFile(blob);
 
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
   catch (e) { Logger.log("No se pudo setSharing ANYONE_WITH_LINK: " + e); }
 
-  return { id: file.getId(), url: file.getUrl(), name: file.getName(), type: mime, size: file.getSize() };
+  const url = `https://drive.google.com/uc?export=download&id=${file.getId()}`;
+  return { id: file.getId(), url, name: file.getName(), type: mime, size: file.getSize() };
 }
 
 function detectarMimePorNombre(nombre) {
