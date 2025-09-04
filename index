@@ -20,6 +20,7 @@
     *{box-sizing:border-box}
     html,body{height:100%}
     body{
+      
       margin:0; font-family: ui-sans-serif, system-ui, Segoe UI, Roboto, Helvetica, Arial;
       background: var(--bg); color: var(--text);
       display:grid; grid-template-rows:auto 1fr auto; gap:8px; padding:12px;
@@ -45,6 +46,8 @@
     .msg{display:grid; grid-template-columns:40px 1fr; gap:10px; align-items:flex-start; margin:10px 0}
     .avatar{width:40px; height:40px; border-radius:10px; display:grid; place-items:center; background:#22283a; color:#fff; font-weight:700}
     .bubble{padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#101420; white-space:pre-wrap; word-wrap:break-word;}
+    body.light .avatar{background:#e1e6f9; color:#1a2240}
+    body.light .bubble{background:#f4f6fb; color:#0f1222}
     .row.user{grid-template-columns:1fr 40px}
     .row.user .avatar{order:2; background:#dbe6ff; color:#1a2240}
     .row.user .bubble{justify-self:end; background:#e9f1ff; color:#0b1225}
@@ -73,8 +76,8 @@
 </head>
 <body class="dark">
   <header class="topbar">
-    <div class="brand">Chat de Matías</div>
-    <label class="toggle" title="Tema claro/oscuro">
+    <div class="brand">Chat de Mau</div>
+     <label class="toggle" title="Tema claro/oscuro">
       <span>☾</span>
       <input id="switch" type="checkbox" />
       <span>☀︎</span>
@@ -99,6 +102,7 @@
     const chat=qs('#chat'),input=qs('#pregunta'),btn=qs('#enviar');
     const fileInput=qs('#archivo'),fileList=qs('#fileList'),dropzone=qs('#dropzone');
     const switchEl=qs('#switch');
+    let currentFiles=[];
 
     // Tema persistente
     const saved=localStorage.getItem('theme');
@@ -130,10 +134,10 @@
 
     // archivos UI
     function renderFileList(files){fileList.innerHTML='';[...files].forEach(f=>{const tag=document.createElement('span');tag.className='fileTag';const kb=Math.max(1,Math.round(f.size/1024));tag.textContent=`${f.name} • ${kb} KB`;fileList.appendChild(tag);});}
-    fileInput.addEventListener('change',()=>renderFileList(fileInput.files));
+    fileInput.addEventListener('change',()=>{currentFiles=[...fileInput.files];renderFileList(currentFiles);});
     ['dragenter','dragover'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.add('drag');}));
     ['dragleave','drop'].forEach(evt=>dropzone.addEventListener(evt,e=>{e.preventDefault();dropzone.classList.remove('drag');}));
-    dropzone.addEventListener('drop',e=>{const dt=e.dataTransfer;if(!dt?.files?.length)return;fileInput.files=dt.files;renderFileList(fileInput.files);});
+    dropzone.addEventListener('drop',e=>{e.preventDefault();const files=[...(e.dataTransfer?.files||[])];if(!files.length)return;currentFiles=files;renderFileList(currentFiles);});
 
     function readFilesAsBase64(files,maxMB=10){
       return Promise.all([...files].map(file=>new Promise((resolve,reject)=>{
@@ -147,10 +151,10 @@
 
     function enviarPregunta(){
       const text=input.value.trim();
-      const hasFiles=fileInput.files.length>0;
+      const hasFiles=currentFiles.length>0;
       if(!text && !hasFiles) return;
       if(text) addMessage('user',text);
-      if(hasFiles) addMessage('user',`Adjuntos: ${[...fileInput.files].map(f=>f.name).join(', ')}`);
+      if(hasFiles) addMessage('user',`Adjuntos: ${currentFiles.map(f=>f.name).join(', ')}`);
       const typing=addTyping();
       replaceTyping(typing,hasFiles?'📎 Subiendo…':'⌛ Procesando…');
       setSending(true);
@@ -162,7 +166,7 @@
               .procesarPregunta(text);
         return;
       }
-      readFilesAsBase64(fileInput.files).then(payload=>{
+      readFilesAsBase64(currentFiles).then(payload=>{
         runner.withSuccessHandler(res=>{replaceTyping(typing,res);cleanupAfterSend();})
               .withFailureHandler(()=>{
                 // fallback uno por uno
@@ -177,7 +181,7 @@
               .procesarPreguntaConArchivos(text||'Analiza los adjuntos',payload);
       }).catch(e=>{replaceTyping(typing,`⚠️ ${e.message}`);cleanupAfterSend();});
     }
-    function cleanupAfterSend(){setSending(false);input.value='';fileInput.value='';fileList.innerHTML='';}
+    function cleanupAfterSend(){setSending(false);input.value='';fileInput.value='';fileList.innerHTML='';currentFiles=[];}
     btn.addEventListener('click',enviarPregunta);
     input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();enviarPregunta();}});
     addMessage('gpt','Hola, soy tu mini chat. Ahora acepto imágenes, PDFs y más.');
