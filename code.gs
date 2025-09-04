@@ -7,6 +7,7 @@ const DRIVE_FOLDER_ID    = "1bqXXXX";
 
 
 
+
 let memoriaSesion = [];
 
 /* ================= MAIN ================= */
@@ -149,10 +150,10 @@ function construirContextoBasico(pregunta) {
   const contexto = [
     {
       role: "system",
-      content: `Eres un asistente personalizado para Mau(prefiere que lo llamen Sandoval). Responde lo que te pida como su mejor amigo.
+      content: `Eres un asistente personalizado para Matias. Responde lo que te pida como su mejor amigo.
 Tu creador es Carlos.
 
-Si Mau menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
+Si Matias menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
 GUARDAR: clave = valor
 
 Memoria larga:
@@ -172,10 +173,10 @@ function construirContextosCrudos() {
 
   const contextoSistema = {
     role: "system",
-    content: `Eres un asistente personalizado para Mau(prefiere que lo llamen Sandoval). Responde lo que te pida como su mejor amigo.
+    content: `Eres un asistente personalizado para Matias. Responde lo que te pida como su mejor amigo.
 Tu creador es Carlos.
 
-Si Mau menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
+Si Matias menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
 GUARDAR: clave = valor
 
 Memoria larga:
