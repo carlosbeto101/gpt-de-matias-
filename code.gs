@@ -1,13 +1,9 @@
-/***********************
- * code.gs — Chat de Matías con adjuntos + Sheets seguros
- * Fecha: 2025-09-02
- ***********************/
 
-const OPENAI_API_KEY   = "sk-proj-xxxx";
-const SHEET_HISTORIAL_ID = "xxxxxxxxxxxxxxx";
-const SHEET_MEMORIA_ID   = "xxxxxxxxxxs";
+const OPENAI_API_KEY = "sk-proj-XXXXXXXXXXXXXXXXXXXXXXXX";
+const SHEET_HISTORIAL_ID = "1Fuzn_xxxxxxxxxxxxxxxxxxx";
+const SHEET_MEMORIA_ID = "1CQB-XXX";
 // Carpeta de Drive para adjuntos (crea una y pega su ID)
-const DRIVE_FOLDER_ID    = "1xxxxxxxxxxx";
+const DRIVE_FOLDER_ID    = "1bqXXXX";
 
 
 
@@ -26,7 +22,7 @@ function withSheet(id, fn, sheetName) {
     if (!id || typeof id !== "string" || id.trim().length < 10) {
       throw new Error("SHEET ID vacío o inválido: " + id);
     }
-    const ss = SpreadsheetApp.openById(id);
+        const ss = SpreadsheetApp.openById(id);
     const sheet = sheetName ? ss.getSheetByName(sheetName) : ss.getSheets()[0];
     if (!sheet) throw new Error("No encontré la hoja " + (sheetName || "[primera]") + " en " + id);
     return fn(sheet);
@@ -50,6 +46,9 @@ function procesarPregunta(pregunta) {
 }
 
 function procesarPreguntaConArchivo(pregunta, nombreArchivo, contenidoBase64) {
+  if (!nombreArchivo || !contenidoBase64) {
+    return procesarPregunta(pregunta || "Adjunto vacío");
+  }
   const meta = guardarArchivoEnDrive(nombreArchivo, contenidoBase64);
 
   // Solo imágenes soportadas a image_url
@@ -87,12 +86,17 @@ function procesarPreguntaConArchivo(pregunta, nombreArchivo, contenidoBase64) {
 }
 
 function procesarPreguntaConArchivos(pregunta, archivos) {
-  if (!Array.isArray(archivos) || archivos.length === 0) {
+  if (!Array.isArray(archivos)) {
     return procesarPregunta(pregunta || "Procesa esto.");
   }
 
-  const metas = archivos.map(a => {
-    const safeType = a && a.type ? a.type : detectarMimePorNombre(a?.name || "");
+  const limpios = archivos.filter(a => a && a.name && a.base64);
+  if (limpios.length === 0) {
+    return procesarPregunta(pregunta || "Procesa esto.");
+  }
+
+  const metas = limpios.map(a => {
+    const safeType = a.type && String(a.type).trim() ? a.type : detectarMimePorNombre(a.name);
     return guardarArchivoEnDrive(a.name, a.base64, safeType);
   });
 
@@ -145,10 +149,10 @@ function construirContextoBasico(pregunta) {
   const contexto = [
     {
       role: "system",
-      content: `Eres un asistente personalizado para Matias. Responde lo que te pida como su mejor amigo.
+      content: `Eres un asistente personalizado para Mau(prefiere que lo llamen Sandoval). Responde lo que te pida como su mejor amigo.
 Tu creador es Carlos.
 
-Si Matias menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
+Si Mau menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
 GUARDAR: clave = valor
 
 Memoria larga:
@@ -168,10 +172,10 @@ function construirContextosCrudos() {
 
   const contextoSistema = {
     role: "system",
-    content: `Eres un asistente personalizado para Matias. Responde lo que te pida como su mejor amigo.
+    content: `Eres un asistente personalizado para Mau(prefiere que lo llamen Sandoval). Responde lo que te pida como su mejor amigo.
 Tu creador es Carlos.
 
-Si Matias menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
+Si Mau menciona algo importante (edad, gustos, relaciones, ciudad, escuela, etc.), guarda el dato al final de tu respuesta con este formato:
 GUARDAR: clave = valor
 
 Memoria larga:
@@ -406,7 +410,7 @@ function extraerLineasGuardar(respuesta) {
 function cargarUltimasConversaciones(n) {
   try {
     return withSheet(SHEET_HISTORIAL_ID, sheet => {
-      const datos = sheet.getDataRange().getValues();
+            const datos = sheet.getDataRange().getValues();
       const ultimas = datos.slice(-Math.max(1, n|0));
       const mensajes = [];
       ultimas.forEach(fila => {
@@ -431,13 +435,15 @@ function guardarArchivoEnDrive(nombre, base64, mimeOpt) {
   const carpeta = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   const mime = mimeOpt || detectarMimePorNombre(nombre);
 
-  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nombre);
+  const limpio = String(base64).replace(/\s+/g, "");
+  const blob = Utilities.newBlob(Utilities.base64Decode(limpio), mime, nombre);
   const file = carpeta.createFile(blob);
 
   try { file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); }
   catch (e) { Logger.log("No se pudo setSharing ANYONE_WITH_LINK: " + e); }
 
-  return { id: file.getId(), url: file.getUrl(), name: file.getName(), type: mime, size: file.getSize() };
+  const url = `https://drive.google.com/uc?export=download&id=${file.getId()}`;
+  return { id: file.getId(), url, name: file.getName(), type: mime, size: file.getSize() };
 }
 
 function detectarMimePorNombre(nombre) {
