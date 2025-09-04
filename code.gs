@@ -1,10 +1,13 @@
+/***********************
+ * code.gs — Chat de Matías con adjuntos + Sheets seguros
+ * Fecha: 2025-09-02
+ ***********************/
 
-const OPENAI_API_KEY = "sk-proj-XXXXXXXXXXXXXXXXXXXXXXXX";
-const SHEET_HISTORIAL_ID = "1Fuzn_xxxxxxxxxxxxxxxxxxx";
-const SHEET_MEMORIA_ID = "1CQB-XXX";
+const OPENAI_API_KEY   = "sk-proj-ZZZZZZZZ";
+const SHEET_HISTORIAL_ID = "1mXXXXXXXXXXXXXXXXXXXXX";
+const SHEET_MEMORIA_ID   = "XXXXXXXXXXXXXXXXXXX";
 // Carpeta de Drive para adjuntos (crea una y pega su ID)
-const DRIVE_FOLDER_ID    = "1bqXXXX";
-
+const DRIVE_FOLDER_ID    = "XXX";
 
 
 
